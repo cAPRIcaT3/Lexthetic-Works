@@ -31,15 +31,19 @@ class Generator(nn.Module):
         # Pass input through ShuffleNetV2 model
         shuffle_net_output = self.shuffle_net(input_data)
     
+        # Print the shape of the output tensor
+        print("ShuffleNet Output Shape:", shuffle_net_output.shape)
+    
         # Check if the output tensor has at least three dimensions
         while len(shuffle_net_output.shape) < 3:
             # Add an extra dimension
             shuffle_net_output = shuffle_net_output.unsqueeze(2)
-
+    
         # Use Global Average Pooling (GAP) to reduce spatial dimensions
         shuffle_features = F.adaptive_avg_pool2d(shuffle_net_output, (1, 1))
     
         return shuffle_features.view(shuffle_features.size(0), -1)
+
 
     def forward(self, features, z):
         # Extract ShuffleNet features
