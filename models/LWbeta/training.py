@@ -56,21 +56,27 @@ criterion = nn.BCELoss()
 generator_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
-# Training loop
 for epoch in range(num_epochs):
-    for _ in range(num_batches):  # You need to define num_batches based on your dataset
+    for _ in range(num_batches):
         # 1. Train Discriminator
         discriminator.zero_grad()
-        real_data = load_images_from_data(df.sample(batch_size, replace=True))  # Load random real images from your dataset
-        real_labels = torch.ones(batch_size, 1)
+        
+        # Load random real images from your dataset
+        real_data = load_images_from_data(df.sample(batch_size, replace=True))
+        
+        # Adjust the size of real_labels to match the current batch size
+        current_batch_size = real_data.size(0)
+        real_labels = torch.ones(current_batch_size, 1)
+        
         real_outputs = discriminator(real_data)
         real_loss = criterion(real_outputs, real_labels)
 
-        noise_vector = torch.randn(batch_size, 100)
-        shuffle_features = generator.shuffle_features(real_data)  # Use ShuffleNet features from real data
-        generated_images = generator(shuffle_features, noise_vector)
-        fake_labels = torch.zeros(batch_size, 1)
-        fake_outputs = discriminator(generated_images.detach())  # Detach to avoid generator gradients
+        noise_vector = torch.randn(current_batch_size, 100)
+        shuffle_features_real = generator.shuffle_features(real_data)
+        generated_images = generator(shuffle_features_real, noise_vector)
+        
+        fake_labels = torch.zeros(current_batch_size, 1)
+        fake_outputs = discriminator(generated_images.detach())
         fake_loss = criterion(fake_outputs, fake_labels)
 
         discriminator_loss = real_loss + fake_loss
@@ -79,9 +85,9 @@ for epoch in range(num_epochs):
 
         # 2. Train Generator
         generator.zero_grad()
-        shuffle_features = generator.shuffle_features(real_data)  # Use ShuffleNet features from real data
-        generated_images = generator(shuffle_features, noise_vector)
-        discriminator_outputs = discriminator(generated_images)
+        
+        shuffle_features_fake = generator.shuffle_features(generated_images)
+        discriminator_outputs = discriminator(shuffle_features_fake)
         generator_loss = criterion(discriminator_outputs, real_labels)
 
         generator_loss.backward()
