@@ -46,8 +46,8 @@ def load_images_from_data(data):
 
 # Define loss function and optimizers
 criterion = nn.BCELoss()
-generator_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+generator_optimizer = optim.Adam(Generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+discriminator_optimizer = optim.Adam(Discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
 # Training loop
 for epoch in range(num_epochs):
