@@ -27,7 +27,7 @@ num_batches = num_samples // batch_size
 # Function to load and preprocess images from URLs
 def load_images_from_data(data):
     transform = transforms.Compose([
-            transforms.Resize((64, 64)),  # Resize the image to (64, 64)
+            transforms.Resize((224, 224)),  # Resize the image to (224, 224) for ShuffleNetV2
             transforms.ToTensor()  # Convert the image to a PyTorch tensor
         ])
     images = []
@@ -48,6 +48,7 @@ def load_images_from_data(data):
 
     return torch.stack(images)
 
+# Instantiate the Generator and Discriminator models
 generator = Generator(latent_dim=100, feature_dim=1024, output_dim=3)
 discriminator = Discriminator(input_dim=3 * 64 * 64)
 
@@ -56,45 +57,56 @@ criterion = nn.BCELoss()
 generator_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
+# Calculate the adjusted batch size to ensure it's a multiple of 32
+adjusted_batch_size = batch_size - (num_samples % batch_size)
+
 for epoch in range(num_epochs):
+    # If there's a difference in batch sizes, add records
+    if current_batch_size != batch_size:
+        additional_samples = batch_size - current_batch_size
+        additional_data = df.sample(additional_samples, replace=True)
+        df = pd.concat([df, additional_data], ignore_index=True)
     for _ in range(num_batches):
         # 1. Train Discriminator
         discriminator.zero_grad()
-        
-        # Load random real images from your dataset
-        real_data = load_images_from_data(df.sample(batch_size, replace=True))
-        
+
+        # Load random real images from your dataset with the adjusted batch size
+        sampled_data = df.sample(adjusted_batch_size, replace=True)
+        real_data = load_images_from_data(sampled_data)
+
         # Adjust the size of real_labels to match the current batch size
         current_batch_size = real_data.size(0)
         real_labels = torch.ones(current_batch_size, 1)
-        
+
         real_outputs = discriminator(real_data)
         real_loss = criterion(real_outputs, real_labels)
 
-        noise_vector = torch.randn(current_batch_size, 100)
-        shuffle_features_real = generator.shuffle_features(real_data)
-        generated_images = generator(shuffle_features_real, noise_vector)
-        
-        fake_labels = torch.zeros(current_batch_size, 1)
-        fake_outputs = discriminator(generated_images.detach())
-        fake_loss = criterion(fake_outputs, fake_labels)
+        if current_batch_size > 0:  # Ensure batch size is greater than zero
+            noise_vector = torch.randn(current_batch_size, 100)
+            shuffle_features_real = generator.shuffle_features(real_data)
+            generated_images = generator(shuffle_features_real, noise_vector)
 
-        discriminator_loss = real_loss + fake_loss
-        discriminator_loss.backward()
-        discriminator_optimizer.step()
+            fake_labels = torch.zeros(current_batch_size, 1)
+            fake_outputs = discriminator(generated_images.detach())
+            fake_loss = criterion(fake_outputs, fake_labels)
 
-        # 2. Train Generator
-        generator.zero_grad()
-        
-        shuffle_features_fake = generator.shuffle_features(generated_images)
-        discriminator_outputs = discriminator(shuffle_features_fake)
-        generator_loss = criterion(discriminator_outputs, real_labels)
+            discriminator_loss = real_loss + fake_loss
+            discriminator_loss.backward()
+            discriminator_optimizer.step()
 
-        generator_loss.backward()
-        generator_optimizer.step()
+            # 2. Train Generator
+            generator.zero_grad()
 
-    # Print training progress (optional)
-    print(f'Epoch [{epoch+1}/{num_epochs}], Generator Loss: {generator_loss.item()}, Discriminator Loss: {discriminator_loss.item()}')
+            shuffle_features_fake = generator.shuffle_features(generated_images)
+            discriminator_outputs = discriminator(shuffle_features_fake)
+            generator_loss = criterion(discriminator_outputs, real_labels)
+
+            generator_loss.backward()
+            generator_optimizer.step()
+
+            # Print training progress (optional)
+            print(f'Epoch [{epoch+1}/{num_epochs}], Generator Loss: {generator_loss.item()}, Discriminator Loss: {discriminator_loss.item()}')
+
 
 # Save models
 torch.save(generator.state_dict(), 'models/LWbeta/generator_model.pth')
