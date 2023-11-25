@@ -15,7 +15,7 @@ num_epochs = 100
 batch_size = 32
 
 # Path to your CSV file
-csv_file_path = os.path.abspath("/content/Lexthetic-Works/data/data_sample.csv") #its weird bc I'm training on google colab and couldn't get the import straight
+csv_file_path = os.path.abspath("/content/Lexthetic-Works/data/data_sample.csv")
 
 # Read the CSV file into a Pandas DataFrame
 df = pd.read_csv(csv_file_path)
@@ -63,6 +63,7 @@ for epoch in range(num_epochs):
         real_loss = criterion(real_outputs, real_labels)
 
         noise_vector = torch.randn(batch_size, 100)
+        shuffle_features = generator.shuffle_features(real_data)  # Use ShuffleNet features from real data
         generated_images = generator(shuffle_features, noise_vector)
         fake_labels = torch.zeros(batch_size, 1)
         fake_outputs = discriminator(generated_images.detach())  # Detach to avoid generator gradients
@@ -74,6 +75,7 @@ for epoch in range(num_epochs):
 
         # 2. Train Generator
         generator.zero_grad()
+        shuffle_features = generator.shuffle_features(real_data)  # Use ShuffleNet features from real data
         generated_images = generator(shuffle_features, noise_vector)
         discriminator_outputs = discriminator(generated_images)
         generator_loss = criterion(discriminator_outputs, real_labels)

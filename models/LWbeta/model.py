@@ -1,5 +1,6 @@
 import torch
 import torch.nn as nn
+from torchvision.models import shufflenet_v2_x1_0
 
 class Generator(nn.Module):
     def __init__(self, latent_dim, feature_dim, output_dim, hidden_dim=1024, num_layers=3, upscale_factor=2):
@@ -7,6 +8,9 @@ class Generator(nn.Module):
 
         # Feature extractor dimensions
         self.feature_dim = feature_dim
+
+        # Load the ShuffleNetV2 model
+        self.shuffle_net = shufflenet_v2_x1_0(pretrained=True)
 
         # Generator architecture
         layers = []
@@ -23,12 +27,18 @@ class Generator(nn.Module):
 
         self.generator = nn.Sequential(*layers)
 
+    def shuffle_features(self, x):
+        return self.shuffle_net.features(x)
+
     def forward(self, features, z):
+        # Extract ShuffleNet features
+        shuffle_features = self.shuffle_features(features)
+
         # Reshape ShuffleNet features
-        features = features.view(features.size(0), -1)
+        shuffle_features = shuffle_features.view(shuffle_features.size(0), -1)
 
         # Concatenate ShuffleNet features and noise vector
-        combined = torch.cat([features, z], dim=1)
+        combined = torch.cat([shuffle_features, z], dim=1)
 
         # Pass through the generator
         return self.generator(combined)
