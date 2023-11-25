@@ -1,6 +1,6 @@
-import torch
 import torch.nn as nn
-from torchvision.models import shufflenet_v2_x1_0
+import torch.nn.functional as F
+from torchvision.models import shufflenet_v2_x1_0  # Add this import statement
 
 class Generator(nn.Module):
     def __init__(self, latent_dim, feature_dim, output_dim, hidden_dim=1024, num_layers=3, upscale_factor=2):
@@ -28,14 +28,20 @@ class Generator(nn.Module):
         self.generator = nn.Sequential(*layers)
 
     def shuffle_features(self, x):
-        return self.shuffle_net.features(x)
+        # Pass input through ShuffleNetV2 model
+        shuffle_net_output = self.shuffle_net(x)
+        
+        # Use Global Average Pooling (GAP) to reduce spatial dimensions
+        shuffle_net_output = F.adaptive_avg_pool2d(shuffle_net_output, (1, 1))
+        
+        # Reshape features
+        shuffle_features = shuffle_net_output.view(shuffle_net_output.size(0), -1)
+        
+        return shuffle_features
 
     def forward(self, features, z):
         # Extract ShuffleNet features
         shuffle_features = self.shuffle_features(features)
-
-        # Reshape ShuffleNet features
-        shuffle_features = shuffle_features.view(shuffle_features.size(0), -1)
 
         # Concatenate ShuffleNet features and noise vector
         combined = torch.cat([shuffle_features, z], dim=1)
