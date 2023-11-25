@@ -26,23 +26,23 @@ num_batches = num_samples // batch_size
 
 # Function to load and preprocess images from URLs
 def load_images_from_data(data):
-    transform = transforms.Compose([
-        transforms.Resize((64, 64)),  # Adjust the size as needed
-        transforms.ToTensor(),
-        # Add more transformations if necessary
-    ])
-    
     images = []
     for url in data['image_url']:
         response = requests.get(url)
-        img = Image.open(BytesIO(response.content)).convert("RGB")
-        img = transform(img)
-        images.append(img)
-    return torch.stack(images)
 
-# Initialize generator and discriminator
-generator = Generator(latent_dim=100, feature_dim=1024, output_dim=3)
-discriminator = Discriminator(input_dim=3 * 64 * 64)
+        # Check if the response status is OK (200)
+        if response.status_code == 200:
+            try:
+                # Attempt to open the image
+                img = Image.open(BytesIO(response.content)).convert("RGB")
+                img = transforms(img)
+                images.append(img)
+            except Exception as e:
+                print(f"Error processing image from URL {url}: {e}")
+        else:
+            print(f"Failed to fetch image from URL {url}. Status code: {response.status_code}")
+
+    return torch.stack(images)
 
 # Define loss function and optimizers
 criterion = nn.BCELoss()
