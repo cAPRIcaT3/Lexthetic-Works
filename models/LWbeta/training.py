@@ -26,6 +26,10 @@ num_batches = num_samples // batch_size
 
 # Function to load and preprocess images from URLs
 def load_images_from_data(data):
+    transform = transforms.Compose([
+    transforms.Resize((64, 64)),
+    transforms.ToTensor(),
+    ])
     images = []
     for url in data['image_url']:
         response = requests.get(url)
