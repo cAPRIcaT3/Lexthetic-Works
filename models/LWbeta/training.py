@@ -15,7 +15,7 @@ num_epochs = 100
 batch_size = 32
 
 # Path to your CSV file
-csv_file_path = os.path.abspath("/content/Lexthetic-Works/data/data_sample.csv")
+csv_file_path = os.path.abspath("/content/Lexthetic-Works/data/data_sample.csv") #its weird bc I'm training on google colab and couldn't get the import straight
 
 # Read the CSV file into a Pandas DataFrame
 df = pd.read_csv(csv_file_path)
@@ -44,10 +44,13 @@ def load_images_from_data(data):
 
     return torch.stack(images)
 
+generator = Generator(latent_dim=100, feature_dim=1024, output_dim=3)
+discriminator = Discriminator(input_dim=3 * 64 * 64)
+
 # Define loss function and optimizers
 criterion = nn.BCELoss()
-generator_optimizer = optim.Adam(Generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-discriminator_optimizer = optim.Adam(Discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+generator_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
 # Training loop
 for epoch in range(num_epochs):
