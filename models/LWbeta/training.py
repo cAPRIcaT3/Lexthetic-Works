@@ -57,36 +57,35 @@ criterion = nn.BCELoss()
 generator_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
 
-# Calculate the adjusted batch size to ensure it's a multiple of 32
+# Calculate the adjusted batch size to ensure it's a multiple of batch size
 adjusted_batch_size = batch_size - (num_samples % batch_size)
 
 for epoch in range(num_epochs):
     # If there's a difference in batch sizes, add records
-    if current_batch_size != batch_size:
-        additional_samples = batch_size - current_batch_size
+    if adjusted_batch_size != batch_size:
+        additional_samples = batch_size - adjusted_batch_size
         additional_data = df.sample(additional_samples, replace=True)
         df = pd.concat([df, additional_data], ignore_index=True)
+
     for _ in range(num_batches):
         # 1. Train Discriminator
         discriminator.zero_grad()
 
         # Load random real images from your dataset with the adjusted batch size
-        sampled_data = df.sample(adjusted_batch_size, replace=True)
+        sampled_data = df.sample(batch_size, replace=True)  # Use original batch_size here
         real_data = load_images_from_data(sampled_data)
 
-        # Adjust the size of real_labels to match the current batch size
-        current_batch_size = real_data.size(0)
-        real_labels = torch.ones(current_batch_size, 1)
+        real_labels = torch.ones(batch_size, 1)  # Use original batch_size here
 
         real_outputs = discriminator(real_data)
         real_loss = criterion(real_outputs, real_labels)
 
-        if current_batch_size > 0:  # Ensure batch size is greater than zero
-            noise_vector = torch.randn(current_batch_size, 100)
+        if batch_size > 0:  # Ensure batch size is greater than zero
+            noise_vector = torch.randn(batch_size, 100)
             shuffle_features_real = generator.shuffle_features(real_data)
             generated_images = generator(shuffle_features_real, noise_vector)
 
-            fake_labels = torch.zeros(current_batch_size, 1)
+            fake_labels = torch.zeros(batch_size, 1)
             fake_outputs = discriminator(generated_images.detach())
             fake_loss = criterion(fake_outputs, fake_labels)
 
@@ -106,6 +105,9 @@ for epoch in range(num_epochs):
 
             # Print training progress (optional)
             print(f'Epoch [{epoch+1}/{num_epochs}], Generator Loss: {generator_loss.item()}, Discriminator Loss: {discriminator_loss.item()}')
+
+    # Update adjusted batch size based on the actual size of the last batch
+    adjusted_batch_size = len(sampled_data)
 
 
 # Save models
