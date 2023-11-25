@@ -27,9 +27,9 @@ num_batches = num_samples // batch_size
 # Function to load and preprocess images from URLs
 def load_images_from_data(data):
     transform = transforms.Compose([
-    transforms.Resize((64, 64)),
-    transforms.ToTensor(),
-    ])
+            transforms.Resize((64, 64)),  # Resize the image to (64, 64)
+            transforms.ToTensor()  # Convert the image to a PyTorch tensor
+        ])
     images = []
     for url in data['image_url']:
         response = requests.get(url)
@@ -39,7 +39,7 @@ def load_images_from_data(data):
             try:
                 # Attempt to open the image
                 img = Image.open(BytesIO(response.content)).convert("RGB")
-                img = transforms(img)
+                img = transform(img)
                 images.append(img)
             except Exception as e:
                 print(f"Error processing image from URL {url}: {e}")
