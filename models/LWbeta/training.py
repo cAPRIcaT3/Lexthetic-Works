@@ -1,4 +1,5 @@
 import torch
+import os
 import torch.nn as nn
 import torch.optim as optim
 from model import Generator
@@ -14,13 +15,23 @@ num_epochs = 100
 batch_size = 32
 
 # Path to your CSV file
-csv_file_path = 'data/sample_data.csv'
+csv_file_path = os.path.abspath("/content/Lexthetic-Works/data/data_sample.csv")
 
 # Read the CSV file into a Pandas DataFrame
 df = pd.read_csv(csv_file_path)
 
+# Calculate the number of batches based on the dataset size and batch size
+num_samples = len(df)
+num_batches = num_samples // batch_size
+
 # Function to load and preprocess images from URLs
 def load_images_from_data(data):
+    transform = transforms.Compose([
+        transforms.Resize((64, 64)),  # Adjust the size as needed
+        transforms.ToTensor(),
+        # Add more transformations if necessary
+    ])
+    
     images = []
     for url in data['image_url']:
         response = requests.get(url)
