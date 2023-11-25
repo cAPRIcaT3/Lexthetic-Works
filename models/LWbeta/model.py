@@ -30,14 +30,11 @@ class Generator(nn.Module):
     def shuffle_features(self, x):
         # Pass input through ShuffleNetV2 model
         shuffle_net_output = self.shuffle_net(x)
-        
+
         # Use Global Average Pooling (GAP) to reduce spatial dimensions
-        shuffle_net_output = F.adaptive_avg_pool2d(shuffle_net_output, (1, 1))
-        
-        # Reshape features
-        shuffle_features = shuffle_net_output.view(shuffle_net_output.size(0), -1)
-        
-        return shuffle_features
+        shuffle_features = F.adaptive_avg_pool2d(shuffle_net_output, (1, 1))
+
+        return shuffle_features.view(shuffle_net_output.size(0), -1)
 
     def forward(self, features, z):
         # Extract ShuffleNet features
