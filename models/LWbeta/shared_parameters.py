@@ -67,6 +67,9 @@ class Discriminator(nn.Module):
         # Flatten the images
         flattened_images = images.view(images.size(0), -1)
 
+        # Determine input_dim dynamically based on the size of flattened_images
+        input_dim = flattened_images.size(1)
+
         # Pass through the shared layers
         return self.shared_layers(flattened_images)
 
