@@ -2,8 +2,7 @@ import torch
 import os
 import torch.nn as nn
 import torch.optim as optim
-from model import Generator
-from discriminator import Discriminator
+from shared_parameters import Generator, Discriminator
 from torchvision import transforms
 from PIL import Image
 import requests
@@ -48,7 +47,7 @@ def load_images_from_data(data):
 
     return torch.stack(images)
 
-# Instantiate the Generator and Discriminator models
+# Instantiate the Generator and Discriminator models with shared layers
 generator = Generator(latent_dim=100, feature_dim=1024, output_dim=3)
 discriminator = Discriminator(input_dim=3 * 64 * 64)
 
@@ -82,8 +81,7 @@ for epoch in range(num_epochs):
 
         if batch_size > 0:  # Ensure batch size is greater than zero
             noise_vector = torch.randn(batch_size, 100)
-            shuffle_features_real = generator.shuffle_features(real_data)
-            generated_images = generator(shuffle_features_real, noise_vector)
+            generated_images = generator(real_data, noise_vector)
 
             fake_labels = torch.zeros(batch_size, 1)
             fake_outputs = discriminator(generated_images.detach())
@@ -96,8 +94,7 @@ for epoch in range(num_epochs):
             # 2. Train Generator
             generator.zero_grad()
 
-            shuffle_features_fake = generator.shuffle_features(generated_images)
-            discriminator_outputs = discriminator(shuffle_features_fake)
+            discriminator_outputs = discriminator(generated_images)
             generator_loss = criterion(discriminator_outputs, real_labels)
 
             generator_loss.backward()
@@ -108,7 +105,6 @@ for epoch in range(num_epochs):
 
     # Update adjusted batch size based on the actual size of the last batch
     adjusted_batch_size = len(sampled_data)
-
 
 # Save models
 torch.save(generator.state_dict(), 'models/LWbeta/generator_model.pth')
