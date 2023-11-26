@@ -10,7 +10,7 @@ class Generator(nn.Module):
         self.feature_dim = feature_dim
 
         # Load the ShuffleNetV2 model
-        self.shuffle_net = shufflenet_v2_x1_0(pretrained=True)
+        self.shuffle_net = shufflenet_v2_x1_0(weights='imagenet1k')
 
         # Generator architecture
         layers = []
