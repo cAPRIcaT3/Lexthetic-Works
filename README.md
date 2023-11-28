@@ -1,2 +1,2 @@
 # Lexthetic-Works
-Aesthetic-Specific GAN
+Aesthetic-Specific Word Art GAN
