@@ -1,111 +1,78 @@
 import torch
-import os
 import torch.nn as nn
 import torch.optim as optim
-from shared_parameters import Generator, Discriminator
+from torch.utils.data import DataLoader
 from torchvision import transforms
-from PIL import Image
-import requests
-from io import BytesIO
-import pandas as pd
+from generator import Generator
+from discriminator import Discriminator
+from shared_parameters import SharedParameters  # Assuming you saved the shared parameters in a file named shared_parameters.py
+from torchvision.models import shufflenet_v2_x1_0  # Import the ShuffleNetV2 model
 
-# Training parameters
-num_epochs = 100
-batch_size = 32
+# Define constants
+latent_dim = 100
+text_dim = 16
+shufflenet_feature_dim = 1024
+output_dim = 3
+vocab_size = 10000  # Adjust based on the size of your vocabulary
+embedding_dim = 128  # Adjust based on the desired size of text embeddings
+batch_size = 64
+epochs = 50
+learning_rate = 0.0002
 
-# Path to your CSV file
-csv_file_path = os.path.abspath("/content/Lexthetic-Works/data/data_sample.csv")
+# Instantiate the shared parameters
+shared_parameters = SharedParameters(latent_dim=latent_dim, text_dim=text_dim, shufflenet_feature_dim=shufflenet_feature_dim)
 
-# Read the CSV file into a Pandas DataFrame
-df = pd.read_csv(csv_file_path)
+# Instantiate the models with shared parameters
+generator = Generator(output_dim=output_dim, **shared_parameters.__dict__)
+discriminator = Discriminator(**shared_parameters.__dict__)
 
-# Calculate the number of batches based on the dataset size and batch size
-num_samples = len(df)
-num_batches = num_samples // batch_size
-
-# Function to load and preprocess images from URLs
-def load_images_from_data(data):
-    transform = transforms.Compose([
-            transforms.Resize((224, 224)),  # Resize the image to (224, 224) for ShuffleNetV2
-            transforms.ToTensor()  # Convert the image to a PyTorch tensor
-        ])
-    images = []
-    for url in data['image_url']:
-        response = requests.get(url)
-
-        # Check if the response status is OK (200)
-        if response.status_code == 200:
-            try:
-                # Attempt to open the image
-                img = Image.open(BytesIO(response.content)).convert("RGB")
-                img = transform(img)
-                images.append(img)
-            except Exception as e:
-                print(f"Error processing image from URL {url}: {e}")
-        else:
-            print(f"Failed to fetch image from URL {url}. Status code: {response.status_code}")
-
-    return torch.stack(images)
-
-# Instantiate the Generator and Discriminator models with shared layers
-generator = Generator(latent_dim=100, feature_dim=1024, output_dim=3)
-discriminator = Discriminator(input_dim=3 * 64 * 64)
-
-# Define loss function and optimizers
+# Define loss and optimizers
 criterion = nn.BCELoss()
-generator_optimizer = optim.Adam(generator.parameters(), lr=0.0002, betas=(0.5, 0.999))
-discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=0.0002, betas=(0.5, 0.999))
+generator_optimizer = optim.Adam(generator.parameters(), lr=learning_rate)
+discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=learning_rate)
 
-# Calculate the adjusted batch size to ensure it's a multiple of batch size
-adjusted_batch_size = batch_size - (num_samples % batch_size)
+# Load ShuffleNetV2 model
+shufflenet_model = shufflenet_v2_x1_0(pretrained=True)
+shufflenet_model = nn.Sequential(*list(shufflenet_model.children())[:-1])
 
-for epoch in range(num_epochs):
-    # If there's a difference in batch sizes, add records
-    if adjusted_batch_size != batch_size:
-        additional_samples = batch_size - adjusted_batch_size
-        additional_data = df.sample(additional_samples, replace=True)
-        df = pd.concat([df, additional_data], ignore_index=True)
+# Training loop
+for epoch in range(epochs):
+    for batch_idx, data in enumerate(custom_loader):  # Replace custom_loader with your actual DataLoader
+        real_images = data['image']
+        text_descriptions = data['description']
 
-    for _ in range(num_batches):
-        # 1. Train Discriminator
-        discriminator.zero_grad()
+        # Forward pass
+        discriminator_outputs = discriminator(text_descriptions, real_images)
+        generator_loss = criterion(discriminator_outputs, real_labels)
 
-        # Load random real images from your dataset with the adjusted batch size
-        sampled_data = df.sample(batch_size, replace=True)  # Use original batch_size here
-        real_data = load_images_from_data(sampled_data)
+        # Backward pass and optimization for generator
+        generator_optimizer.zero_grad()
+        generator_loss.backward()
+        generator_optimizer.step()
 
-        real_labels = torch.ones(batch_size, 1)  # Use original batch_size here
+        # Train discriminator
+        discriminator_optimizer.zero_grad()
+        real_labels = torch.ones(real_images.size(0), 1)
+        fake_labels = torch.zeros(real_images.size(0), 1)
 
-        real_outputs = discriminator(real_data)
+        real_outputs = discriminator(text_descriptions, real_images.view(-1, shufflenet_feature_dim, 1, 1))
         real_loss = criterion(real_outputs, real_labels)
+        real_loss.backward()
 
-        if batch_size > 0:  # Ensure batch size is greater than zero
-            noise_vector = torch.randn(batch_size, 100)
-            generated_images = generator(real_data, noise_vector)
+        z = torch.randn(real_images.size(0), latent_dim)
+        fake_images = generator(z, text_descriptions, real_images)
+        fake_outputs = discriminator(text_descriptions, fake_images.detach())
+        fake_loss = criterion(fake_outputs, fake_labels)
+        fake_loss.backward()
 
-            fake_labels = torch.zeros(batch_size, 1)
-            fake_outputs = discriminator(generated_images.detach())
-            fake_loss = criterion(fake_outputs, fake_labels)
+        discriminator_optimizer.step()
 
-            discriminator_loss = real_loss + fake_loss
-            discriminator_loss.backward()
-            discriminator_optimizer.step()
-
-            # 2. Train Generator
-            generator.zero_grad()
-
-            discriminator_outputs = discriminator(generated_images)
-            generator_loss = criterion(discriminator_outputs, real_labels)
-
-            generator_loss.backward()
-            generator_optimizer.step()
-
-            # Print training progress (optional)
-            print(f'Epoch [{epoch+1}/{num_epochs}], Generator Loss: {generator_loss.item()}, Discriminator Loss: {discriminator_loss.item()}')
-
-    # Update adjusted batch size based on the actual size of the last batch
-    adjusted_batch_size = len(sampled_data)
+        # Print training progress
+        if batch_idx % 100 == 0:
+            print(f"Epoch {epoch}/{epochs}, Batch {batch_idx}/{len(custom_loader)}, "
+                  f"Generator Loss: {generator_loss.item():.4f}, "
+                  f"Discriminator Loss: {real_loss.item() + fake_loss.item():.4f}")
 
 # Save models
-torch.save(generator.state_dict(), 'models/LWbeta/generator_model.pth')
-torch.save(discriminator.state_dict(), 'models/LWbeta/discriminator_model.pth')
+torch.save(generator.state_dict(), 'generator.pth')
+torch.save(discriminator.state_dict(), 'discriminator.pth')
