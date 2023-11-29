@@ -3,8 +3,8 @@ import torch.nn as nn
 import torch.optim as optim
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from generator import Generator
-from discriminator import Discriminator
+from shared_parameters import Generator
+from shared_parameters import Discriminator
 from shared_parameters import SharedParameters  # Assuming you saved the shared parameters in a file named shared_parameters.py
 from torchvision.models import shufflenet_v2_x1_0  # Import the ShuffleNetV2 model
 
