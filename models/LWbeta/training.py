@@ -1,20 +1,20 @@
-# Import necessary libraries
 import torch
 import torch.nn as nn
 from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchvision import transforms
 from CustomDataset import CustomDataset
-from model import Generator, Discriminator
+from model import Generator, Discriminator, SharedParameters
 from config import Config
 from google.colab import files
 
 # Upload the dataset CSV file
 uploaded = files.upload()
 
-# Initialize the GAN model, discriminator, and generator
-generator = Generator()
-discriminator = Discriminator()
+# Initialize the shared parameters, generator, and discriminator
+shared_params = SharedParameters()
+generator = Generator(shared_params)
+discriminator = Discriminator(shared_params)
 
 # Define the loss function (Binary Cross Entropy for GANs)
 criterion = nn.BCELoss()
