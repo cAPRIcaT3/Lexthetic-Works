@@ -1,78 +1,87 @@
+# Import necessary libraries
 import torch
 import torch.nn as nn
-import torch.optim as optim
+from torch.optim import Adam
 from torch.utils.data import DataLoader
 from torchvision import transforms
-from shared_parameters import Generator
-from shared_parameters import Discriminator
-from shared_parameters import SharedParameters  # Assuming you saved the shared parameters in a file named shared_parameters.py
-from torchvision.models import shufflenet_v2_x1_0  # Import the ShuffleNetV2 model
+from CustomDataset import CustomDataset
+from model import Generator, Discriminator
+from config import Config
+from google.colab import files
 
-# Define constants
-latent_dim = 100
-text_dim = 16
-shufflenet_feature_dim = 1024
-output_dim = 3
-vocab_size = 10000  # Adjust based on the size of your vocabulary
-embedding_dim = 128  # Adjust based on the desired size of text embeddings
-batch_size = 64
-epochs = 50
-learning_rate = 0.0002
+# Upload the dataset CSV file
+uploaded = files.upload()
 
-# Instantiate the shared parameters
-shared_parameters = SharedParameters(latent_dim=latent_dim, text_dim=text_dim, shufflenet_feature_dim=shufflenet_feature_dim)
+# Initialize the GAN model, discriminator, and generator
+generator = Generator()
+discriminator = Discriminator()
 
-# Instantiate the models with shared parameters
-generator = Generator(output_dim=output_dim, **shared_parameters.__dict__)
-discriminator = Discriminator(**shared_parameters.__dict__)
-
-# Define loss and optimizers
+# Define the loss function (Binary Cross Entropy for GANs)
 criterion = nn.BCELoss()
-generator_optimizer = optim.Adam(generator.parameters(), lr=learning_rate)
-discriminator_optimizer = optim.Adam(discriminator.parameters(), lr=learning_rate)
 
-# Load ShuffleNetV2 model
-shufflenet_model = shufflenet_v2_x1_0(pretrained=True)
-shufflenet_model = nn.Sequential(*list(shufflenet_model.children())[:-1])
+# Set up optimizers for the generator and discriminator
+optimizer_G = Adam(generator.parameters(), lr=Config.learning_rate, betas=(Config.beta1, Config.beta2))
+optimizer_D = Adam(discriminator.parameters(), lr=Config.learning_rate, betas=(Config.beta1, Config.beta2))
+
+# Set up transformations for the dataset
+transform = transforms.Compose([transforms.Resize((64, 64)), transforms.ToTensor()])
+
+# Create an instance of the CustomDataset class
+dataset = CustomDataset(csv_file='data_sample.csv', transform=transform)
+
+# Create a DataLoader for the dataset
+dataloader = DataLoader(dataset, batch_size=Config.batch_size, shuffle=True, num_workers=4)
 
 # Training loop
-for epoch in range(epochs):
-    for batch_idx, data in enumerate(custom_loader):  # Replace custom_loader with your actual DataLoader
-        real_images = data['image']
-        text_descriptions = data['description']
+num_epochs = 50  # Adjust the number of epochs as needed
 
-        # Forward pass
-        discriminator_outputs = discriminator(text_descriptions, real_images)
-        generator_loss = criterion(discriminator_outputs, real_labels)
+for epoch in range(num_epochs):
+    for i, data in enumerate(dataloader):
+        # Get real samples
+        real_text, real_image = data['description'], data['image']
 
-        # Backward pass and optimization for generator
-        generator_optimizer.zero_grad()
-        generator_loss.backward()
-        generator_optimizer.step()
+        # Generate random noise
+        z = torch.randn(real_text.size(0), Config.latent_dim)
 
-        # Train discriminator
-        discriminator_optimizer.zero_grad()
-        real_labels = torch.ones(real_images.size(0), 1)
-        fake_labels = torch.zeros(real_images.size(0), 1)
+        # Generate fake samples
+        fake_output_with_text = generator(z, real_text, real_image)
 
-        real_outputs = discriminator(text_descriptions, real_images.view(-1, shufflenet_feature_dim, 1, 1))
-        real_loss = criterion(real_outputs, real_labels)
-        real_loss.backward()
+        # Train the discriminator
+        discriminator.zero_grad()
 
-        z = torch.randn(real_images.size(0), latent_dim)
-        fake_images = generator(z, text_descriptions, real_images)
-        fake_outputs = discriminator(text_descriptions, fake_images.detach())
-        fake_loss = criterion(fake_outputs, fake_labels)
-        fake_loss.backward()
+        # Real samples
+        real_labels = torch.ones(real_text.size(0), 1)
+        real_output = discriminator(real_text, real_image, real_labels)
+        real_loss = criterion(real_output, real_labels)
 
-        discriminator_optimizer.step()
+        # Fake samples
+        fake_labels = torch.zeros(real_text.size(0), 1)
+        fake_output = discriminator(real_text, real_image, fake_output_with_text.detach())
+        fake_loss = criterion(fake_output, fake_labels)
 
-        # Print training progress
-        if batch_idx % 100 == 0:
-            print(f"Epoch {epoch}/{epochs}, Batch {batch_idx}/{len(custom_loader)}, "
-                  f"Generator Loss: {generator_loss.item():.4f}, "
-                  f"Discriminator Loss: {real_loss.item() + fake_loss.item():.4f}")
+        # Total discriminator loss
+        total_discriminator_loss = real_loss + fake_loss
+        total_discriminator_loss.backward()
+        optimizer_D.step()
 
-# Save models
-torch.save(generator.state_dict(), 'generator.pth')
-torch.save(discriminator.state_dict(), 'discriminator.pth')
+        # Train the generator
+        generator.zero_grad()
+
+        # Adversarial loss
+        adversarial_loss = criterion(fake_output, real_labels)
+
+        # Reconstruction loss (optional, depending on your objectives)
+        # recon_loss = your_custom_loss_function(fake_output_with_text, real_text)
+
+        # Total generator loss
+        total_generator_loss = adversarial_loss  # + recon_loss if using reconstruction loss
+        total_generator_loss.backward()
+        optimizer_G.step()
+
+        # Print training information
+        if i % 100 == 0:
+            print(
+                f"Epoch [{epoch}/{num_epochs}], Step [{i}/{len(dataloader)}], "
+                f"Discriminator Loss: {total_discriminator_loss.item()}, "
+                f"Generator Loss: {total_generator_loss.item()}"
+            )
