@@ -1,6 +1,6 @@
 import torch
 import torch.nn as nn
-import torchvision.models as models  # Import models from torchvision
+import torchvision.models as models
 from config import Config
 
 class SharedParameters(nn.Module):
@@ -48,7 +48,14 @@ class Generator(nn.Module, SharedParameters):
         
         # Concatenate text, image, and noise vectors
         combined_input = torch.cat([z, text_embedding, shufflenet_features], dim=1)
-        return self.combined_branch(combined_input)
+        
+        # Pass the combined input through the generator's combined_branch
+        generated_output = self.combined_branch(combined_input)
+        
+        # Include the text embedding in the final output
+        output_with_text = torch.cat([generated_output, text_embedding], dim=1)
+        return output_with_text
+
 
 class Discriminator(nn.Module, SharedParameters):
     def __init__(self):
@@ -57,16 +64,16 @@ class Discriminator(nn.Module, SharedParameters):
 
         # Combined branch
         self.combined_branch = nn.Sequential(
-            nn.Linear(self.text_dim + self.shufflenet_feature_dim, 256),
+            nn.Linear(self.text_dim + self.shufflenet_feature_dim + Config.output_dim, 256),
             nn.LeakyReLU(0.2),
             nn.Linear(256, 1),
             nn.Sigmoid()
         )
 
-    def forward(self, text, image):
+    def forward(self, text, image, generated_output_with_text):
         text_embedding = self.text_branch(text)
         shufflenet_features = self.shufflenet_branch(image)
         
-        # Concatenate text and image features
-        combined_input = torch.cat([text_embedding, shufflenet_features], dim=1)
+        # Concatenate text, image, and generated output with text vectors
+        combined_input = torch.cat([text_embedding, shufflenet_features, generated_output_with_text], dim=1)
         return self.combined_branch(combined_input)
