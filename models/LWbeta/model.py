@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torchvision.models as models
-from config import Config
 
 class SharedParameters(nn.Module):
     def __init__(self):
@@ -28,14 +27,14 @@ class SharedParameters(nn.Module):
         self.shufflenet_feature_dim = Config.shufflenet_feature_dim
 
 
-class Generator(nn.Module, SharedParameters):
-    def __init__(self):
+class Generator(nn.Module):
+    def __init__(self, shared_params):
         super(Generator, self).__init__()
-        SharedParameters.__init__(self)
+        self.shared_params = shared_params
 
         # Combined branch
         self.combined_branch = nn.Sequential(
-            nn.Linear(self.latent_dim + self.text_dim + self.shufflenet_feature_dim, 512),
+            nn.Linear(self.shared_params.latent_dim + self.shared_params.text_dim + self.shared_params.shufflenet_feature_dim, 512),
             nn.BatchNorm1d(512),
             nn.ReLU(),
             nn.Linear(512, Config.output_dim),
@@ -43,8 +42,8 @@ class Generator(nn.Module, SharedParameters):
         )
 
     def forward(self, z, text, image):
-        text_embedding = self.text_branch(text)
-        shufflenet_features = self.shufflenet_branch(image)
+        text_embedding = self.shared_params.text_branch(text)
+        shufflenet_features = self.shared_params.shufflenet_branch(image)
         
         # Concatenate text, image, and noise vectors
         combined_input = torch.cat([z, text_embedding, shufflenet_features], dim=1)
@@ -57,22 +56,22 @@ class Generator(nn.Module, SharedParameters):
         return output_with_text
 
 
-class Discriminator(nn.Module, SharedParameters):
-    def __init__(self):
+class Discriminator(nn.Module):
+    def __init__(self, shared_params):
         super(Discriminator, self).__init__()
-        SharedParameters.__init__(self)
+        self.shared_params = shared_params
 
         # Combined branch
         self.combined_branch = nn.Sequential(
-            nn.Linear(self.text_dim + self.shufflenet_feature_dim + Config.output_dim, 256),
+            nn.Linear(self.shared_params.text_dim + self.shared_params.shufflenet_feature_dim + Config.output_dim, 256),
             nn.LeakyReLU(0.2),
             nn.Linear(256, 1),
             nn.Sigmoid()
         )
 
     def forward(self, text, image, generated_output_with_text):
-        text_embedding = self.text_branch(text)
-        shufflenet_features = self.shufflenet_branch(image)
+        text_embedding = self.shared_params.text_branch(text)
+        shufflenet_features = self.shared_params.shufflenet_branch(image)
         
         # Concatenate text, image, and generated output with text vectors
         combined_input = torch.cat([text_embedding, shufflenet_features, generated_output_with_text], dim=1)
