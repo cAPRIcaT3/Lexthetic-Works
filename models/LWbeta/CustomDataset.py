@@ -42,6 +42,6 @@ class CustomDataset(Dataset):
 
 # Example of using the CustomDataset class
 # Assuming you have uploaded your CSV file using the Google Colab upload widget
-from google.colab import files
-uploaded = files.upload()
-dataset = CustomDataset(csv_file='data_sample.csv', transform=transforms.Compose([transforms.Resize((64, 64)), transforms.ToTensor()]))
+#from google.colab import files
+#uploaded = files.upload()
+#dataset = CustomDataset(csv_file='data_sample.csv', transform=transforms.Compose([transforms.Resize((64, 64)), transforms.ToTensor()]))
