@@ -1,87 +1,64 @@
 import torch
 import torch.nn as nn
-from torch.optim import Adam
-from torch.utils.data import DataLoader
-from torchvision import transforms
-from CustomDataset import CustomDataset
-from model import Generator, Discriminator, SharedParameters
 from config import Config
-from google.colab import files
 
-# Upload the dataset CSV file
-uploaded = files.upload()
+class SharedParameters(nn.Module):
+    def __init__(self):
+        super(SharedParameters, self).__init__()
 
-# Initialize the shared parameters, generator, and discriminator
-shared_params = SharedParameters()
-generator = Generator(shared_params)
-discriminator = Discriminator(shared_params)
+        # Text processing branch
+        self.text_branch = nn.Sequential(
+            nn.Embedding(Config.vocab_size, Config.embedding_dim),
+            nn.Linear(Config.embedding_dim, Config.text_dim),
+            nn.ReLU()
+        )
 
-# Define the loss function (Binary Cross Entropy for GANs)
-criterion = nn.BCELoss()
+        self.latent_dim = Config.latent_dim
+        self.text_dim = Config.text_dim
 
-# Set up optimizers for the generator and discriminator
-optimizer_G = Adam(generator.parameters(), lr=Config.learning_rate, betas=(Config.beta1, Config.beta2))
-optimizer_D = Adam(discriminator.parameters(), lr=Config.learning_rate, betas=(Config.beta1, Config.beta2))
+class Generator(nn.Module):
+    def __init__(self, shared_params):
+        super(Generator, self).__init__()
+        self.shared_params = shared_params
 
-# Set up transformations for the dataset
-transform = transforms.Compose([transforms.Resize((64, 64)), transforms.ToTensor()])
+        # Combined branch
+        self.combined_branch = nn.Sequential(
+            nn.Linear(self.shared_params.latent_dim + self.shared_params.text_dim, 512),
+            nn.BatchNorm1d(512),
+            nn.ReLU(),
+            nn.Linear(512, Config.output_dim),
+            nn.Tanh()
+        )
 
-# Create an instance of the CustomDataset class
-dataset = CustomDataset(csv_file='data_sample.csv', transform=transform)
+    def forward(self, z, text):
+        text_embedding = self.shared_params.text_branch(text)
+        
+        # Concatenate text and noise vectors
+        combined_input = torch.cat([z, text_embedding], dim=1)
+        
+        # Pass the combined input through the generator's combined_branch
+        generated_output = self.combined_branch(combined_input)
+        
+        # Include the text embedding in the final output
+        output_with_text = torch.cat([generated_output, text_embedding], dim=1)
+        return output_with_text
 
-# Create a DataLoader for the dataset
-dataloader = DataLoader(dataset, batch_size=Config.batch_size, shuffle=True, num_workers=4)
+class Discriminator(nn.Module):
+    def __init__(self, shared_params):
+        super(Discriminator, self).__init__()
+        self.shared_params = shared_params
 
-# Training loop
-num_epochs = 50  # Adjust the number of epochs as needed
+        # Combined branch
+        self.combined_branch = nn.Sequential(
+            nn.Linear(self.shared_params.text_dim + Config.output_dim, 256),
+            nn.LeakyReLU(0.2),
+            nn.Linear(256, 1),
+            nn.Sigmoid()
+        )
 
-for epoch in range(num_epochs):
-    for i, data in enumerate(dataloader):
-        # Get real samples
-        real_text, real_image = data['description'], data['image']
-
-        # Generate random noise
-        z = torch.randn(real_text.size(0), Config.latent_dim)
-
-        # Generate fake samples
-        fake_output_with_text = generator(z, real_text, real_image)
-
-        # Train the discriminator
-        discriminator.zero_grad()
-
-        # Real samples
-        real_labels = torch.ones(real_text.size(0), 1)
-        real_output = discriminator(real_text, real_image, real_labels)
-        real_loss = criterion(real_output, real_labels)
-
-        # Fake samples
-        fake_labels = torch.zeros(real_text.size(0), 1)
-        fake_output = discriminator(real_text, real_image, fake_output_with_text.detach())
-        fake_loss = criterion(fake_output, fake_labels)
-
-        # Total discriminator loss
-        total_discriminator_loss = real_loss + fake_loss
-        total_discriminator_loss.backward()
-        optimizer_D.step()
-
-        # Train the generator
-        generator.zero_grad()
-
-        # Adversarial loss
-        adversarial_loss = criterion(fake_output, real_labels)
-
-        # Reconstruction loss (optional, depending on your objectives)
-        # recon_loss = your_custom_loss_function(fake_output_with_text, real_text)
-
-        # Total generator loss
-        total_generator_loss = adversarial_loss  # + recon_loss if using reconstruction loss
-        total_generator_loss.backward()
-        optimizer_G.step()
-
-        # Print training information
-        if i % 100 == 0:
-            print(
-                f"Epoch [{epoch}/{num_epochs}], Step [{i}/{len(dataloader)}], "
-                f"Discriminator Loss: {total_discriminator_loss.item()}, "
-                f"Generator Loss: {total_generator_loss.item()}"
-            )
+    def forward(self, text, generated_output_with_text):
+        text_embedding = self.shared_params.text_branch(text)
+        
+        # Concatenate text and generated output with text vectors
+        combined_input = torch.cat([text_embedding, generated_output_with_text], dim=1)
+        return self.combined_branch(combined_input)
