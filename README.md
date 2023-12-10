@@ -13,6 +13,11 @@ Lexthetic Works is a project focused on generating stylized and aesthetically pl
 
 Lexthetic Works leverages GANs to create word art that spans different aesthetic styles, including a wide range of aesthetics. The project involves training models to understand typographyand generate word art in diverse and stylized fonts.
 
+
+markdown_code = f"""
+![Procedure](/{procedure.png})
+"""
+
 ## Features
 
 - **Typography Understanding:** OCR model for recognizing and understanding different fonts and characters.
