@@ -11,11 +11,9 @@ Lexthetic Works is a project focused on generating stylized and aesthetically pl
 
 ## Overview
 
-Lexthetic Works leverages GANs to create word art that spans different aesthetic styles, including a wide range of aesthetics. The project involves training models to understand typographyand generate word art in diverse and stylized fonts.
-
+Lexthetic Works leverages GANs to create word art that spans different aesthetic styles, including a wide range of aesthetics. The project involves training models to understand typography and generate word art in diverse and stylized fonts.
 
 ![Procedure Image](procedure.png)
-
 
 ## Features
 
@@ -24,9 +22,10 @@ Lexthetic Works leverages GANs to create word art that spans different aesthetic
 - **Stylized Fonts:** Training on word art and aesthetic-specific fonts for diverse and aesthetically pleasing text generation.
 - **Specialized Fonts:** Fine-tuning on very stylized fonts to push the boundaries of creativity.
 
+## Dataset
 
-##Dataset
 The dataset used for training comprises various fonts, styles, and aesthetics. Refer to the Dataset section in the codebase for more details on the dataset structure.
 
-##License
+## License
+
 This project is licensed under the MIT License.
