@@ -49,7 +49,7 @@ def load_images_from_data(data):
     return torch.stack(images)
 
 # Instantiate the Generator and Discriminator models
-generator = Generator(latent_dim=100, feature_dim=1024, output_dim=3)
+generator = Generator(latent_dim=100, feature_dim=1024, output_dim=12288)  # Adjust output_dim
 discriminator = Discriminator(input_dim=3 * 64 * 64)
 
 # Define loss function and optimizers

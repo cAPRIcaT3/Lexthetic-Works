@@ -10,7 +10,7 @@ class Generator(nn.Module):
         self.feature_dim = feature_dim
 
         # Load the ShuffleNetV2 model
-        self.shuffle_net = shufflenet_v2_x1_0(pretrained=True)
+        self.shuffle_net = shufflenet_v2_x1_0(weights='imagenet1k')
 
         # Generator architecture
         layers = []
@@ -49,8 +49,15 @@ class Generator(nn.Module):
         # Extract ShuffleNet features
         shuffle_features = self.shuffle_features(features)
 
+        # Print shapes for debugging
+        print("ShuffleNet Features Shape:", shuffle_features.shape)
+        print("Z Shape:", z.shape)
+
         # Concatenate ShuffleNet features and noise vector
         combined = torch.cat([shuffle_features, z], dim=1)
+
+        # Print combined shape
+        print("Combined Shape:", combined.shape)
 
         # Pass through the generator
         return self.generator(combined)
