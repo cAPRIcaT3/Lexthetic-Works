@@ -26,6 +26,38 @@ Lexthetic Works leverages GANs to create word art that spans different aesthetic
 
 The dataset used for training comprises various fonts, styles, and aesthetics. Refer to the Dataset section in the codebase for more details on the dataset structure.
 
+Usage
+To generate word art using the trained model:
+
+Clone this repository:
+
+bash
+Copy code
+git clone https://github.com/yourusername/lexthetic-works.git
+cd lexthetic-works
+Install the required dependencies (see Installation).
+
+Run the generate.py script with your input word or phrase:
+
+bash
+Copy code
+python generate.py --text "Your Word" --style "aesthetic_style"
+The output image will be saved in the output/ directory.
+
+Installation
+To get started with Lexthetic Works, follow these steps:
+
+Clone the Repository:
+
+
+git clone https://github.com/yourusername/lexthetic-works.git
+cd lexthetic-works
+Install Dependencies: Make sure you have Python 3.x installed. Install the necessary packages with:
+
+pip install -r requirements.txt
+
+Download the dataset as mentioned in the Dataset section.
+
 ## License
 
 This project is licensed under the MIT License.
